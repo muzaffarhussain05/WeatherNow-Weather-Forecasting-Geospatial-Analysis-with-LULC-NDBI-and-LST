@@ -1,107 +1,202 @@
 
-import { useEffect, useState } from 'react';
+import { useState,useEffect } from 'react';
 
-import Header from './components/Header';
-import SearchBar from './components/SearchBar';
-import SearchResults from './components/SearchResults';
-import CurrentWeather from './components/CurrentWeather';
-import WeatherDetails from './components/WeatherDetails';
+import AppHeader from './components/Header';
+import LocationSearch from './components/search/LocationSearch';
+import { reverseGeocode } from './services/geocodingApi.js';
 import HourlyForecast from './components/HourlyForecast';
 import DailyForecast from './components/DailyForecast';
 import LoadingState from './components/LoadingState';
 import ErrorMessage from './components/ErrorMessage';
 
+import useTheme from './hooks/useTheme';
+import useSavedLocations from './hooks/useSavedLocations';
 import useWeather from './hooks/useWeather';
+import WeatherDashboard from './components/WeatherDashboard';
+
+import SatelliteMap from './components/SatelliteMap';
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
+  
+  const [locationStatus, setLocationStatus] = useState('requesting');
+
   const {
     city,
     weather,
-    results,
     loading,
-    searching,
     error,
-    searchMessage,
-    searchCity,
     selectCity,
     retry,
   } = useWeather();
 
-  const [unit, setUnit] = useState(
-    () => localStorage.getItem('weather-unit') || 'C'
-  );
+  const {
+    savedLocations,
+    isSaved,
+    toggleSavedLocation,
+    removeSavedLocation,
+  } = useSavedLocations();
 
-  const [dark, setDark] = useState(
-    () => localStorage.getItem('weather-theme') === 'dark'
-  );
+  const [unit, setUnit] = useState(() => {
+    try {
+      const savedUnit = localStorage.getItem('weather-unit');
+      return savedUnit === 'F' ? 'F' : 'C';
+    } catch {
+      return 'C';
+    }
+  });
 
+  function handleUnitChange(nextUnit) {
+    setUnit(nextUnit);
+
+    try {
+      localStorage.setItem('weather-unit', nextUnit);
+    } catch {
+      // Temperature selection still works for this session.
+    }
+  }
+
+  function handleLocationSelect(location) {
+    selectCity(location);
+  }
   useEffect(() => {
-    localStorage.setItem('weather-unit', unit);
-  }, [unit]);
+  if (!navigator.geolocation) {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocationStatus('unsupported');
+    return;
+  }
 
-  useEffect(() => {
-    localStorage.setItem('weather-theme', dark ? 'dark' : 'light');
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  }, [dark]);
+  setLocationStatus('requesting');
+
+  navigator.geolocation.getCurrentPosition(
+   async (position) => {
+  const { latitude, longitude } = position.coords;
+
+  try {
+    const location = await reverseGeocode(latitude, longitude);
+
+    selectCity(location);
+    setLocationStatus('success');
+  // eslint-disable-next-line no-unused-vars
+  } catch (error) {
+    selectCity({
+      name: 'My Location',
+      latitude,
+      longitude,
+      timezone: 'Asia/Karachi',
+    });
+
+    setLocationStatus('success');
+  }
+},
+    (error) => {
+      setLocationStatus(
+        error.code === error.PERMISSION_DENIED
+          ? 'denied'
+          : 'unavailable'
+      );
+    },
+    {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 300000,
+    }
+  );
+}, [selectCity]);
 
   return (
-    <main className="app-container">
-      <Header
+    <div className="min-h-screen bg-background text-text-primary transition-colors duration-200">
+      <AppHeader
         unit={unit}
-        onUnitChange={setUnit}
-        dark={dark}
-        onThemeChange={() => setDark((previous) => !previous)}
+        onUnitChange={handleUnitChange}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        savedLocations={savedLocations}
+        onSelectSavedLocation={handleLocationSelect}
+        onRemoveSavedLocation={removeSavedLocation}
       />
 
-      <section className="welcome">
-        <h1>Weather forecast</h1>
-        <p>Find out what the weather is like wherever you go.</p>
-      </section>
+      <main id="weather" className="mx-auto max-w-7xl pb-12">
+        <LocationSearch
+          onSelectLocation={handleLocationSelect}
+          currentLocation={city}
+          isSaved={isSaved}
+          onToggleSavedLocation={toggleSavedLocation}
+        />
 
-      <SearchBar onSearch={searchCity} searching={searching} />
+        <section
+          className="mt-6 space-y-6 px-4 sm:px-6 lg:px-8"
+          aria-label="Weather dashboard"
+        >
+          {/* {loading && <LoadingState />} */}
+          {(locationStatus === 'requesting' || loading) && (
+  <LoadingState />
+)}
 
-      <SearchResults
-        results={results}
-        onSelect={selectCity}
-        message={searchMessage}
-      />
-
-      {loading && <LoadingState />}
-
-      <ErrorMessage message={error} onRetry={retry} />
-
-      {!loading && !error && weather && city && (
-        <div className="weather-dashboard">
-          <div className="top-grid">
-            <CurrentWeather
-              city={city}
-              current={weather.current}
-              daily={weather.daily}
-              unit={unit}
+          {locationStatus !== 'requesting' && !loading && error && (
+            <ErrorMessage
+              message={error}
+              onRetry={retry}
             />
+          )}
 
-            <WeatherDetails
-              current={weather.current}
-              daily={weather.daily}
-              unit={unit}
-            />
-          </div>
+          {locationStatus !== 'requesting' && !loading && !error && weather && city && (
+            <div className="space-y-1">
+              <div className=" ">
+                 <WeatherDashboard
+    city={city}
+    current={weather.current}
+    daily={weather.daily}
+    unit={unit}
+    currentLocation={city}
+          isSaved={isSaved}
+          onToggleSavedLocation={toggleSavedLocation}
+  />
 
-          <HourlyForecast
-            hourly={weather.hourly}
-            unit={unit}
-          />
+                
+              </div>
 
-          <DailyForecast
-            daily={weather.daily}
-            unit={unit}
-          />
-        </div>
-      )}
+              <HourlyForecast
+                hourly={weather.hourly}
+                unit={unit}
+              />
 
-      <footer className="footer">
+              <DailyForecast
+                daily={weather.daily}
+                unit={unit}
+              />
+             <SatelliteMap
+  latitude={city.latitude}
+  longitude={city.longitude}
+/>
+            </div>
+            
+          )}
+
+
+
+
+
+
+
+          {locationStatus !== 'requesting' && !loading && !error && !weather && (
+            <div className="rounded-3xl border border-border bg-surface px-6 py-12 text-center">
+              <h2 className="text-lg font-bold text-text-primary">
+                Find your weather
+              </h2>
+              <p className="mt-2 text-sm text-text-muted">
+                Search for a city above to load its current weather
+                and forecast.
+              </p>
+            </div>
+          )}
+        </section>
+        
+      </main>
+
+      <footer className="border-t border-border px-4 py-6 text-center text-xs text-text-muted">
         WeatherNow · Weather data by Open-Meteo
       </footer>
-    </main>
+    </div>
   );
 }
