@@ -94,7 +94,6 @@ WeatherNow can support a range of weather and environmental monitoring use cases
 
 ##
 
-Choose a license appropriate for your project before distributing or reusing the code. If you intend to make the project open source, consider the MIT License.
 
 ---
 
