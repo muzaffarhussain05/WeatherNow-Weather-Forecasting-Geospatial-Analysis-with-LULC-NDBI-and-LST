@@ -17,7 +17,7 @@ import { getSatelliteLayers ,retryEarthEngineConnection} from '../services/earth
 const { Overlay } = LayersControl;
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  import.meta.env.VITE_API_URL
 ).replace(/\/+$/, '');
 
 function RecenterMap({ latitude, longitude }) {
