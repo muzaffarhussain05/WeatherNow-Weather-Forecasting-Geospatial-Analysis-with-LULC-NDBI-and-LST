@@ -18,7 +18,7 @@ const { Overlay } = LayersControl;
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL
-).replace(/\/+$/, '');
+)
 
 function RecenterMap({ latitude, longitude }) {
   const map = useMap();
