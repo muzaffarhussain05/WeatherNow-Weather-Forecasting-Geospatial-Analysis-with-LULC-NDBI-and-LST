@@ -40,8 +40,15 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing WeatherNow backend...")
 
     # Create missing database tables before serving requests.
-    await asyncio.to_thread(init_database)
-    logger.info("Database tables initialized successfully.")
+    def initialize_database():
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+
+        init_database()
+
+
+    await asyncio.to_thread(initialize_database)
+    logger.info("PostgreSQL connection verified and tables initialized.")
 
     # Start background tasks.
     ee_task = asyncio.create_task(earth_engine_retry_worker())

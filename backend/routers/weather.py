@@ -83,7 +83,7 @@ def get_weather(
 
     if end_date:
         conditions.append(
-            "ws.observed_at < DATE_ADD(:end_date, INTERVAL 1 DAY)"
+            "ws.observed_at < (:end_date + INTERVAL '1 day')"
         )
         params["end_date"] = end_date
 
@@ -132,7 +132,7 @@ def get_weather_snapshots(
 
     if end_date:
         conditions.append(
-            "ws.recorded_at < DATE_ADD(:end_date, INTERVAL 1 DAY)"
+            "ws.recorded_at < (:end_date + INTERVAL '1 day')"
         )
         params["end_date"] = end_date
 
@@ -244,7 +244,7 @@ def search_cities(
         FROM pakistan_cities c
         LEFT JOIN weather_snapshots ws
             ON ws.city_id = c.id
-        WHERE c.city_name LIKE :name
+       WHERE c.city_name ILIKE :name
         ORDER BY c.city_name ASC, ws.recorded_at DESC, ws.id DESC
     """
 
